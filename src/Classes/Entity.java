@@ -7,6 +7,10 @@ public class Entity {
 		ImagePath = imgPath;
 	}
 	
+	public void SetImgPath(String Path){
+		ImagePath = Path;
+	}
+	
 	public String getImgPath(){
 		return ImagePath;
 	}

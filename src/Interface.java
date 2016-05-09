@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.Integer;
 
-public class Tabuleiro extends JPanel
+public class Interface extends JPanel
 {
 	private Entity[][] Tiles;
 	private int tabWidth = 650;
@@ -18,7 +18,7 @@ public class Tabuleiro extends JPanel
 	private int y = 0;
 	private Graphics2D g2d;
 	
-	public Tabuleiro(Entity[][] tiles)
+	public Interface(Entity[][] tiles)
 	{
 		Tiles = tiles;
 	}

@@ -2,14 +2,14 @@ import javax.swing.*;
 
 import java.awt.*;
 
-public class Janela extends JFrame
+public class GameWindow extends JFrame
 {
 	public final int LARG_DEFAULT=1360;
 	public final int ALT_DEFAULT=768;
 	public JButton Iniciar = new JButton("Iniciar o Jogo");
 	private JPanel p;
 		
-	public Janela()
+	public GameWindow()
 	{
 		// Centraliza a janela.
 		Toolkit tk=Toolkit.getDefaultToolkit();
@@ -31,7 +31,7 @@ public class Janela extends JFrame
 		getContentPane().add(p);
 	}
 	
-	public void loadTabuleiro(Tabuleiro tabuleiro) {
+	public void loadTabuleiro(Interface tabuleiro) {
 		p.remove(Iniciar);
 		tabuleiro.setBounds(100,50,1360,1000);
 		p.add(tabuleiro);

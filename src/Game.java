@@ -1,24 +1,32 @@
 import org.jpl7.Atom;
+import org.jpl7.Compound;
 import org.jpl7.Query;
 import org.jpl7.Term;
+import org.jpl7.Variable;
 
 import Classes.*;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Hashtable;
+
+import javax.imageio.ImageIO;
 
 public class Game
 {
-	private Tabuleiro t;
-	private Janela j;
+	private Interface t;
+	private GameWindow j;
 	private static Entity[][] Tiles = new Entity[12][12];
+	private static Entity[][] Knowledge = new Entity[12][12];
 	
 	public Game()
 	{ 
-		j = new Janela();
+		j = new GameWindow();
 		j.setVisible(true);
 		
 		for(int i=0;i<5;i++) {
@@ -90,6 +98,12 @@ public class Game
 			System.exit(1);
 		}
 		
+		for(int j=0; j<12;j++){
+			for(int i = 0; i<12; i++){
+				Knowledge[j][i] = null;
+			}
+		}
+		
 		new Game(); 
 	}
 	
@@ -97,8 +111,45 @@ public class Game
 	{		
 		public void actionPerformed(ActionEvent evento) 
 		{ 
-			t = new Tabuleiro(Tiles);
+			t = new Interface(Tiles);
 			j.loadTabuleiro(t);
+			
+			Query q2 = new Query("posicao(0,0,X)");
+			HashMap solution = (HashMap) q2.oneSolution();
+			if (solution != null)
+				System.out.println("X = " + solution.get("X"));
+			Query q3 = new Query("virar_direita");
+			q3.oneSolution();
+			Query q4 = new Query("posicao(0,0,X)");
+			solution = (HashMap) q4.oneSolution();
+			if (solution != null)
+				System.out.println("X = " + solution.get("X"));
+			
+			String Position = solution.get("X").toString();
+			ChangeDirection(0, 11, Position);
+			
+			t.repaint();
 		}
+	}
+	
+	public void ChangeDirection(int X, int Y, String Direction){
+		String newPath = "";
+		
+		switch(Direction){
+			case("norte"):
+				newPath = "Images/DK_North.png";
+				break;
+			case("sul"):
+				newPath = "Images/DK_South.png";
+				break;
+			case("leste"):
+				newPath = "Images/DK_East.png";
+				break;
+			case("oeste"):
+				newPath = "Images/DK_West.png";
+				break;
+		}
+		
+		Tiles[X][Y].SetImgPath(newPath);
 	}
 }
