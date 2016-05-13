@@ -25,17 +25,21 @@ public class Interface extends JPanel
 	
 	public void paintComponent(Graphics g)
 	{
-		Image img;		
 		super.paintComponent(g);
 		g2d=(Graphics2D) g;
 
 		for(int j=0; j<12;j++){
 			for(int i = 0; i<12; i++){
-				try {
-					img = ImageIO.read(new File(Tiles[i][j].getImgPath()));
-					g2d.drawImage(img, x+(i*50), y+(j*50), 50, 50, null);
-				} catch (IOException e) {
-					e.printStackTrace();
+				String Path; Image Image;
+				try{
+					Path = Tiles[i][j].getImgPath();
+					if (!Path.substring(Path.length() - 4).equalsIgnoreCase(".gif"))
+						Image = ImageIO.read(new File(Tiles[i][j].getImgPath()));
+					else
+						Image = new ImageIcon("Images/DonkeyGIF.gif").getImage();
+					g2d.drawImage(Image, x+(i*50), y+(j*50), 50, 50, this);
+				} catch(Exception e){
+					System.out.println(e);
 				}
 			}
 		}

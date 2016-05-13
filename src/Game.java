@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 
 import javax.imageio.ImageIO;
+import javax.swing.SwingUtilities;
 
 public class Game
 {
@@ -28,9 +29,44 @@ public class Game
 	{ 
 		j = new GameWindow();
 		j.setVisible(true);
+		t = new Interface(Tiles);
+		j.loadTabuleiro(t);
 		
-		for(int i=0;i<5;i++) {
-			j.Iniciar.addActionListener(new IniciarJogo());
+		String Position = "";
+		int CurrentX = 0, NewX = 0, CurrentY = 11, NewY = 11;
+		HashMap solution;
+		
+		while(true){
+			
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+						
+			Query FindCurrentX = new Query("posicao(X," + Integer.toString(CurrentY) + ",leste)");
+			Query FindCurrentY = new Query("posicao(" + Integer.toString(CurrentX) + ",Y,leste)");
+			Query FindPosition = new Query("posicao(" + Integer.toString(CurrentX) + "," + Integer.toString(CurrentY) + ",P)");
+			
+			solution = (HashMap) FindCurrentX.oneSolution();
+			if (solution != null)
+				CurrentX = Integer.parseInt(solution.get("X").toString());
+			solution = (HashMap) FindCurrentY.oneSolution();
+			if (solution != null)
+				CurrentY = Integer.parseInt(solution.get("Y").toString());
+			
+			Query q5 = new Query("andar");
+			q5.oneSolution();
+
+			solution = (HashMap) FindCurrentX.oneSolution();
+			if (solution != null)
+				NewX = Integer.parseInt(solution.get("X").toString());
+			solution = (HashMap) FindCurrentY.oneSolution();
+			if (solution != null)
+				NewY = Integer.parseInt(solution.get("Y").toString());
+			
+			Walk(CurrentX, CurrentY, NewX, NewY);			
+			t.repaint();
 		}
 	} 
 	
@@ -53,10 +89,10 @@ public class Game
 		    		switch(ch)
 			        {
 		    			case('X'):
-		    				newEntity = new Entity("Images/Kong.png");
+		    				newEntity = new Grass("Images/DonkeyGIF.gif");
 		    				break;
 			        	case('.'):
-			        		newEntity = new Entity("Images/Grass.png");
+			        		newEntity = new Grass("Images/Grass.png");
 			        		break;
 			        	case('O'):
 			        		if(friendsNumber == 0){
@@ -104,32 +140,7 @@ public class Game
 			}
 		}
 		
-		new Game(); 
-	}
-	
-	public class IniciarJogo implements ActionListener
-	{		
-		public void actionPerformed(ActionEvent evento) 
-		{ 
-			t = new Interface(Tiles);
-			j.loadTabuleiro(t);
-			
-			Query q2 = new Query("posicao(0,0,X)");
-			HashMap solution = (HashMap) q2.oneSolution();
-			if (solution != null)
-				System.out.println("X = " + solution.get("X"));
-			Query q3 = new Query("virar_direita");
-			q3.oneSolution();
-			Query q4 = new Query("posicao(0,0,X)");
-			solution = (HashMap) q4.oneSolution();
-			if (solution != null)
-				System.out.println("X = " + solution.get("X"));
-			
-			String Position = solution.get("X").toString();
-			ChangeDirection(0, 11, Position);
-			
-			t.repaint();
-		}
+		new Game();
 	}
 	
 	public void ChangeDirection(int X, int Y, String Direction){
@@ -151,5 +162,11 @@ public class Game
 		}
 		
 		Tiles[X][Y].SetImgPath(newPath);
+	}
+	
+	public void Walk(int OldX, int OldY, int NextX, int NextY){
+		String CurrentPath = Tiles[OldX][OldY].getImgPath();		
+		Tiles[OldX][OldY].SetImgPath("Images/Grass.png");
+		Tiles[NextX][NextY].SetImgPath(CurrentPath);
 	}
 }
