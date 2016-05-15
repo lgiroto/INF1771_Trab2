@@ -14,6 +14,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Random;
 
 import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
@@ -26,6 +27,7 @@ public class Game
 	private static Entity[][] Knowledge = new Entity[12][12];
 	private boolean GameOver = false;
 	private int FriendsSaved = 0;
+	private int DonkeyEnergy = 100;
 	
 	public Game()
 	{ 
@@ -61,38 +63,7 @@ public class Game
 				System.out.println(CurrentX + "," + CurrentY + "," + Position);
 			}			
 			
-			// Pegar informação dos adjacentes
-			Query GetAdjacent = new Query("adjacente(X, Y)");
-			solutions = (HashMap[]) GetAdjacent.allSolutions();
-			if(solutions != null && solutions.length > 0){
-				String Sentido = "nada";
-				for(int i = 0; i < solutions.length; i++){
-					int AdjX = Integer.parseInt(solutions[i].get("X").toString());
-					int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
-					Entity AdjTile = Tiles[AdjX][AdjY];
-					String ClassName = AdjTile.getClass().getName();
-					
-					switch(ClassName){
-						case("Classes.Foe"):
-							if(!Sentido.equals("brisa") && !Sentido.equals("teletransportador"))
-								Sentido = (((Foe) AdjTile).GetIsTp()) ? "teletransportador" : "monstro";
-							break;
-						case("Classes.Hole"):
-							Sentido = "brisa";
-							break;
-						case("Classes.Friend"):
-							if(Sentido.equals("nada"))
-								Sentido = "amigo";
-							break;
-					}
-				}
-				for(int i = 0; i < solutions.length; i++){
-					int AdjX = Integer.parseInt(solutions[i].get("X").toString());
-					int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
-					Query AdicionarConhecimento = new Query("adicionar_conhecimento(" + AdjX + "," + AdjY + "," + Sentido + ")");
-					solution = (HashMap) AdicionarConhecimento.oneSolution();
-				}
-			}
+			AtualizaAdjacentes();
 			
 			Query q5 = new Query("acao(X)");
 			solution = (HashMap) q5.oneSolution();
@@ -100,9 +71,75 @@ public class Game
 				String Action = solution.get("X").toString();
 				System.out.println(Action);
 				
+				if(Action.equals("atacar")){					
+					int AdjX = 0, AdjY = 0;
+					switch(Position){
+						case("norte"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Attacking_North.png");
+							AdjX = CurrentX;
+							AdjY = CurrentY - 1;
+							break;
+						case("sul"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Attacking_South.png");
+							AdjX = CurrentX;
+							AdjY = CurrentY + 1;
+							break;
+						case("leste"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Attacking_Right.png");
+							AdjX = CurrentX + 1;
+							AdjY = CurrentY;
+							break;
+						case("oeste"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Attacking_Left.png");
+							AdjX = CurrentX - 1;
+							AdjY = CurrentY;
+							break;
+					}
+					
+					Entity AttackedTile = Tiles[AdjX][AdjY];
+					
+					if(AttackedTile.getClass().getName().equals("Classes.Foe")){
+						int Life = ((Foe) AttackedTile).GetLife();
+						Random RandomGenerator = new Random();
+						int Damage = RandomGenerator.nextInt(30) + 20;
+						
+						((Foe) AttackedTile).SetLife(Damage);
+						Life = ((Foe) AttackedTile).GetLife();
+						
+						if(Life == 0){
+							Query MatarMonstro = new Query("matar_monstro");
+							MatarMonstro.oneSolution();
+							AttackedTile = new Grass("Images/Grass.png");
+						}
+						
+						DonkeyEnergy = DonkeyEnergy - ((Foe) AttackedTile).GetDamage();
+						t.DonkeyEnergy = DonkeyEnergy;
+						if(DonkeyEnergy <= 0)
+							GameOver = true;
+					} else{
+						Query AtualizarConhecimento = new Query("atualizar_conhecimento(" + AdjX + "," + AdjY + ",nada)");
+						solution = (HashMap) AtualizarConhecimento.oneSolution();	
+						
+						/*Query VirarParaAtacar = new Query("virar_atacar");
+						Query VirarDireita = new Query("virar_direita");
+						solution = (HashMap) VirarParaAtacar.oneSolution();
+						VirarDireita.oneSolution();
+						while(solution == null){							
+							solution = (HashMap) VirarParaAtacar.oneSolution();
+							VirarDireita.oneSolution();
+						}*/
+					}
+					continue;
+				}
+				
 				if(Action.equals("virar_direita"))
 					ChangeDirection(CurrentX, CurrentY, Position);
 				t.CustoTotal = (Action.equals("salvar_amigo")) ? t.CustoTotal - 1000 : t.CustoTotal + 1;
+				
+				if(Action.equals("salvar_amigo")){
+					FriendsSaved++;
+					Tiles[CurrentX][CurrentY] = new Grass("Images/Grass.png");
+				}
 				
 				Query q6 = new Query(Action);
 				solution = (HashMap) q6.oneSolution();
@@ -120,9 +157,68 @@ public class Game
 				}
 			}
 			
+			Query VerificarConhecimento = new Query("conhecimento(_,_,T,0), (T=nada;T=amigo)");
+			solution = (HashMap) VerificarConhecimento.oneSolution();
+			if(solution != null)
+				System.out.println("Tem não explorado");
+			
 			t.repaint();
 		}
-	} 
+	}
+	
+	private void AtualizaAdjacentes(){
+		HashMap solution;
+		HashMap[] solutions;
+		
+		Query GetAdjacent = new Query("adjacente(X, Y)");
+		solutions = (HashMap[]) GetAdjacent.allSolutions();
+		if(solutions != null && solutions.length > 0){
+			String Sentido = "nada";
+			int prioridade = 0;
+			for(int i = 0; i < solutions.length; i++){
+				int AdjX = Integer.parseInt(solutions[i].get("X").toString());
+				int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
+				Entity AdjTile = Tiles[AdjX][AdjY];
+				String ClassName = AdjTile.getClass().getName();
+				
+				switch(ClassName){
+					case("Classes.Foe"):
+						if(prioridade < 3){
+							if(((Foe) AdjTile).GetIsTp()){
+								Sentido = "teletransportador";
+								prioridade = 2;
+							} else if(prioridade < 2){
+								Sentido = "monstro";
+								prioridade = 1;
+							}
+						}
+						break;
+					case("Classes.Hole"):
+						if(prioridade < 4)
+							Sentido = "brisa";
+						prioridade = 3;
+						break;
+					case("Classes.Friend"):
+						Sentido = "amigo";
+						prioridade = 4;
+						break;
+				}
+			}
+			for(int i = 0; i < solutions.length; i++){
+				int AdjX = Integer.parseInt(solutions[i].get("X").toString());
+				int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
+				
+				Query VerificarConhecimento = new Query("conhecimento(" + AdjX + "," + AdjY + ",_,_)");
+				if(!VerificarConhecimento.hasSolution()){
+					Query AdicionarConhecimento = new Query("adicionar_conhecimento(" + AdjX + "," + AdjY + "," + Sentido + ")");
+					solution = (HashMap) AdicionarConhecimento.oneSolution();
+				} else{
+					Query AdicionarConhecimento = new Query("atualizar_conhecimento(" + AdjX + "," + AdjY + "," + Sentido + ")");
+					solution = (HashMap) AdicionarConhecimento.oneSolution();						
+				}
+			}
+		}
+	}
 	
 	public static void main(String[] args) 
 	{
@@ -198,7 +294,6 @@ public class Game
 		new Game();
 	}
 
-	
 	private void ChangeDirection(int X, int Y, String OldDirection){
 		String newPath = "";
 		
@@ -222,7 +317,7 @@ public class Game
 	
 	private void Walk(int OldX, int OldY, int NextX, int NextY){
 		String CurrentPath = Tiles[OldX][OldY].getImgPath();		
-		Tiles[OldX][OldY].SetImgPath("Images/Grass.png");
+		Tiles[OldX][OldY].SetImgPath("Images/GrassVisited.png");
 		Tiles[NextX][NextY].SetImgPath(CurrentPath);
 	}
 }
