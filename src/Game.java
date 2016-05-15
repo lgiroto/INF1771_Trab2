@@ -24,6 +24,8 @@ public class Game
 	private GameWindow j;
 	private static Entity[][] Tiles = new Entity[12][12];
 	private static Entity[][] Knowledge = new Entity[12][12];
+	private boolean GameOver = false;
+	private int FriendsSaved = 0;
 	
 	public Game()
 	{ 
@@ -37,13 +39,16 @@ public class Game
 		HashMap solution;
 		HashMap[] solutions;
 		
-		while(true){
+		while(!GameOver){
 			
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(400);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+			
+			// Verifica Amigos Salvos
+			int FriendsSoFar = FriendsSaved;
 				
 			// Pegar Posição
 			Query FindCurrentPos = new Query("posicao(X,Y,P)");
@@ -69,14 +74,14 @@ public class Game
 					
 					switch(ClassName){
 						case("Classes.Foe"):
-							if(Sentido != "brisa" && Sentido != "teletransportador")
+							if(!Sentido.equals("brisa") && !Sentido.equals("teletransportador"))
 								Sentido = (((Foe) AdjTile).GetIsTp()) ? "teletransportador" : "monstro";
 							break;
 						case("Classes.Hole"):
 							Sentido = "brisa";
 							break;
 						case("Classes.Friend"):
-							if(Sentido == "nada")
+							if(Sentido.equals("nada"))
 								Sentido = "amigo";
 							break;
 					}
@@ -89,27 +94,30 @@ public class Game
 				}
 			}
 			
-			//t.CustoTotal++;
-			
 			Query q5 = new Query("acao(X)");
 			solution = (HashMap) q5.oneSolution();
-			if(solution != null)
-				System.out.println(solution.get("X").toString());
-			
-			/*while(solution == null){
-				Query q6 = new Query("virar_direita");
-				q6.oneSolution();				
-				solution = (HashMap) q5.oneSolution();
-			}*/
-			Query q6 = new Query(solution.get("X").toString());
-			solution = (HashMap) q6.oneSolution();
-			
-			Query GetChangedPos = new Query("posicao(X, Y, P)");
-			solution = (HashMap) GetChangedPos.oneSolution();
-			if (solution != null){
-				NewX = Integer.parseInt(solution.get("X").toString());
-				NewY = Integer.parseInt(solution.get("Y").toString());
-				Walk(CurrentX, CurrentY, NewX, NewY);				
+			if(solution != null){
+				String Action = solution.get("X").toString();
+				System.out.println(Action);
+				
+				if(Action.equals("virar_direita"))
+					ChangeDirection(CurrentX, CurrentY, Position);
+				t.CustoTotal = (Action.equals("salvar_amigo")) ? t.CustoTotal - 1000 : t.CustoTotal + 1;
+				
+				Query q6 = new Query(Action);
+				solution = (HashMap) q6.oneSolution();
+				
+				Query GetChangedPos = new Query("posicao(X, Y, P)");
+				solution = (HashMap) GetChangedPos.oneSolution();
+				if (solution != null){
+					NewX = Integer.parseInt(solution.get("X").toString());
+					NewY = Integer.parseInt(solution.get("Y").toString());
+					Walk(CurrentX, CurrentY, NewX, NewY);
+					if(Tiles[NewX][NewY].getClass().getName() == "Classes.Hole"){
+						t.CustoTotal += 1000;
+						GameOver = true;
+					}
+				}
 			}
 			
 			t.repaint();
@@ -135,7 +143,7 @@ public class Game
 		    		switch(ch)
 			        {
 		    			case('X'):
-		    				newEntity = new Grass("Images/DonkeyGIF.gif");
+		    				newEntity = new Grass("Images/DK_Right.png");
 		    				break;
 			        	case('.'):
 			        		newEntity = new Grass("Images/Grass.png");
@@ -191,21 +199,21 @@ public class Game
 	}
 
 	
-	private void ChangeDirection(int X, int Y, String Direction){
+	private void ChangeDirection(int X, int Y, String OldDirection){
 		String newPath = "";
 		
-		switch(Direction){
+		switch(OldDirection){
 			case("norte"):
-				newPath = "Images/DK_North.png";
+				newPath = "Images/DK_Right.png";
 				break;
 			case("sul"):
-				newPath = "Images/DK_South.png";
+				newPath = "Images/DK_Left.png";
 				break;
 			case("leste"):
-				newPath = "Images/DK_East.png";
+				newPath = "Images/DK_Front.png";
 				break;
 			case("oeste"):
-				newPath = "Images/DK_West.png";
+				newPath = "Images/DK_Back.png";
 				break;
 		}
 		

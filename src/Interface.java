@@ -37,7 +37,7 @@ public class Interface extends JPanel
 					if (!Path.substring(Path.length() - 4).equalsIgnoreCase(".gif"))
 						Image = ImageIO.read(new File(Tiles[i][j].getImgPath()));
 					else
-						Image = new ImageIcon("Images/DonkeyGIF.gif").getImage();
+						Image = new ImageIcon(Tiles[i][j].getImgPath()).getImage();
 					g2d.drawImage(Image, x+(i*50), y+(j*50), 50, 50, this);
 				} catch(Exception e){
 					System.out.println(e);

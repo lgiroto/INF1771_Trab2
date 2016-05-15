@@ -1,6 +1,7 @@
 :-dynamic posicao/3.
 :-dynamic amigos_salvos/1.
 :-dynamic conhecimento/4.
+:-dynamic tile/3.
 
 % Mapa
 tile(0,10,monstro).
@@ -59,35 +60,39 @@ andar :- posicao(X,Y,P), P = oeste, X > 0, XX is X - 1,
 
 % Salvar Amigo
 salvar_amigo :- posicao(X, Y, _), tile(X, Y, amigo), amigos_salvos(A), AA is A + 1,
-				retract(amigos_salvos(_)), assert(amigos_salvos(AA)).
+				retract(amigos_salvos(_)), assert(amigos_salvos(AA)),
+				retract(tile(X,Y,amigo)), assert(tile(X,Y,nada)).
 
 % Ações, em ordem de preferência
 	
 	% Morto, se a vida chegou a zero
 	% acao(dead, none1, none2) :- energy(E), E < 1.
 
+	% Escapar - Voltar pelos já visitados, virando para a direção de um já visitado se necessário e andar
+	%acao(A) :- amigos_salvos(AS), AS = 3, !.
+
 	% Salvar o Amigo
 acao(A) :- posicao(X, Y, _), tile(X, Y, amigo), A = salvar_amigo.
 
-	% Andar para Não Visitado sem Obstáculo (Buraco, Monstro ou Teletransportador)
+	% Andar para não visitado sem Obstáculo (Buraco, Monstro ou Teletransportador); Grama ou Amigo
 acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
-		   conhecimento(X, YY, nada, 0),
+		   conhecimento(X, YY, T, 0), (T = nada; T = amigo),
 		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = sul, Y < 11,  YY is Y + 1,
-		   conhecimento(X, YY, nada, 0),
+		   conhecimento(X, YY, T, 0), (T = nada; T = amigo),
     	   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1,
-		   conhecimento(XX, Y, nada, 0),
+		   conhecimento(XX, Y, T, 0), (T = nada; T = amigo),
   		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
-		   conhecimento(XX, Y, nada, 0),
+		   conhecimento(XX, Y, T, 0), (T = nada; T = amigo),
 		   A = andar,!.
 
    	% Atacar Inimigo em não Visitado se não tiver nenhum não visitado que não tenha nada
 	%acao(X) :- X = atacar.
 
-	% Virar-se caso tenha algum adjacente não visitado que não tenha nada
-acao(A) :- adjacente(X, Y), conhecimento(X, Y, nada, 0), A = virar_direita,!.
+	% Virar-se caso tenha algum adjacente não visitado que não tenha nada ou seja amigo
+acao(A) :- adjacente(X, Y), conhecimento(X, Y, T, 0), (T = nada; T = amigo), A = virar_direita,!.
 
 	% Andar em um visitado
 acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
@@ -103,7 +108,23 @@ acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
 		   conhecimento(XX, Y, _, 1),
 		   A = andar,!.
 
-	% Virar-se como última opção
-acao(A) :- A = virar_direita,!.
+	% Virar-se para vasculhar caso ainda tenha algum não visitado que não tenha nada ou tenha amigo
+acao(A) :- conhecimento(_, _, T, 0), (T = nada; T = amigo), A = virar_direita,!.
 
-	% Teletransportador?
+	% Arriscar Monstro
+
+	% Arriscar andar aonde tenha buraco caso não tenha mais não visitado que não tenha nada nem amigo
+acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
+		   not(conhecimento(_, _, nada, 0)), conhecimento(X, YY, brisa, 0),
+		   A = andar,!.
+acao(A) :- posicao(X,Y,P), P = sul, Y < 11,  YY is Y + 1,
+		   not(conhecimento(_, _, nada, 0)), conhecimento(X, YY, brisa, 0),
+    	   A = andar,!.
+acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1,
+		   not(conhecimento(_, _, nada, 0)), conhecimento(XX, Y, brisa, 0),
+  		   A = andar,!.
+acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
+		   not(conhecimento(_, _, nada, 0)), conhecimento(XX, Y, brisa, 0),
+		   A = andar,!.
+
+	% Arriscar Teletransportador
