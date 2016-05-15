@@ -12,6 +12,7 @@ import java.lang.Integer;
 public class Interface extends JPanel
 {
 	private Entity[][] Tiles;
+	public int CustoTotal = 0;
 	private int tabWidth = 650;
 	private int tabHeight = 650;
 	private int x = 0;
@@ -43,5 +44,11 @@ public class Interface extends JPanel
 				}
 			}
 		}
+		
+        g2d.setPaint(Color.red);
+        g2d.setFont(new Font("Serif", Font.BOLD, 40));
+	    g2d.drawString("Custo Total:", 650, 30);
+	    g2d.setFont(new Font("Serif", Font.BOLD, 25));
+	    g2d.drawString(Integer.toString(CustoTotal), 650, 70);
 	}
 }

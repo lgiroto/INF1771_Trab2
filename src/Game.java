@@ -35,37 +35,83 @@ public class Game
 		String Position = "";
 		int CurrentX = 0, NewX = 0, CurrentY = 11, NewY = 11;
 		HashMap solution;
+		HashMap[] solutions;
 		
 		while(true){
 			
 			try {
-				Thread.sleep(500);
+				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-						
-			Query FindCurrentX = new Query("posicao(X," + Integer.toString(CurrentY) + ",leste)");
-			Query FindCurrentY = new Query("posicao(" + Integer.toString(CurrentX) + ",Y,leste)");
-			Query FindPosition = new Query("posicao(" + Integer.toString(CurrentX) + "," + Integer.toString(CurrentY) + ",P)");
+				
+			// Pegar Posição
+			Query FindCurrentPos = new Query("posicao(X,Y,P)");
 			
-			solution = (HashMap) FindCurrentX.oneSolution();
-			if (solution != null)
+			solution = (HashMap) FindCurrentPos.oneSolution();
+			if (solution != null){
 				CurrentX = Integer.parseInt(solution.get("X").toString());
-			solution = (HashMap) FindCurrentY.oneSolution();
-			if (solution != null)
 				CurrentY = Integer.parseInt(solution.get("Y").toString());
+				Position = solution.get("P").toString();
+				System.out.println(CurrentX + "," + CurrentY + "," + Position);
+			}			
 			
-			Query q5 = new Query("andar");
-			q5.oneSolution();
-
-			solution = (HashMap) FindCurrentX.oneSolution();
-			if (solution != null)
+			// Pegar informação dos adjacentes
+			Query GetAdjacent = new Query("adjacente(X, Y)");
+			solutions = (HashMap[]) GetAdjacent.allSolutions();
+			if(solutions != null && solutions.length > 0){
+				String Sentido = "nada";
+				for(int i = 0; i < solutions.length; i++){
+					int AdjX = Integer.parseInt(solutions[i].get("X").toString());
+					int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
+					Entity AdjTile = Tiles[AdjX][AdjY];
+					String ClassName = AdjTile.getClass().getName();
+					
+					switch(ClassName){
+						case("Classes.Foe"):
+							if(Sentido != "brisa" && Sentido != "teletransportador")
+								Sentido = (((Foe) AdjTile).GetIsTp()) ? "teletransportador" : "monstro";
+							break;
+						case("Classes.Hole"):
+							Sentido = "brisa";
+							break;
+						case("Classes.Friend"):
+							if(Sentido == "nada")
+								Sentido = "amigo";
+							break;
+					}
+				}
+				for(int i = 0; i < solutions.length; i++){
+					int AdjX = Integer.parseInt(solutions[i].get("X").toString());
+					int AdjY = Integer.parseInt(solutions[i].get("Y").toString());
+					Query AdicionarConhecimento = new Query("adicionar_conhecimento(" + AdjX + "," + AdjY + "," + Sentido + ")");
+					solution = (HashMap) AdicionarConhecimento.oneSolution();
+				}
+			}
+			
+			//t.CustoTotal++;
+			
+			Query q5 = new Query("acao(X)");
+			solution = (HashMap) q5.oneSolution();
+			if(solution != null)
+				System.out.println(solution.get("X").toString());
+			
+			/*while(solution == null){
+				Query q6 = new Query("virar_direita");
+				q6.oneSolution();				
+				solution = (HashMap) q5.oneSolution();
+			}*/
+			Query q6 = new Query(solution.get("X").toString());
+			solution = (HashMap) q6.oneSolution();
+			
+			Query GetChangedPos = new Query("posicao(X, Y, P)");
+			solution = (HashMap) GetChangedPos.oneSolution();
+			if (solution != null){
 				NewX = Integer.parseInt(solution.get("X").toString());
-			solution = (HashMap) FindCurrentY.oneSolution();
-			if (solution != null)
 				NewY = Integer.parseInt(solution.get("Y").toString());
+				Walk(CurrentX, CurrentY, NewX, NewY);				
+			}
 			
-			Walk(CurrentX, CurrentY, NewX, NewY);			
 			t.repaint();
 		}
 	} 
@@ -139,11 +185,13 @@ public class Game
 				Knowledge[j][i] = null;
 			}
 		}
+		Knowledge[0][11] = Tiles[0][11];
 		
 		new Game();
 	}
+
 	
-	public void ChangeDirection(int X, int Y, String Direction){
+	private void ChangeDirection(int X, int Y, String Direction){
 		String newPath = "";
 		
 		switch(Direction){
@@ -164,7 +212,7 @@ public class Game
 		Tiles[X][Y].SetImgPath(newPath);
 	}
 	
-	public void Walk(int OldX, int OldY, int NextX, int NextY){
+	private void Walk(int OldX, int OldY, int NextX, int NextY){
 		String CurrentPath = Tiles[OldX][OldY].getImgPath();		
 		Tiles[OldX][OldY].SetImgPath("Images/Grass.png");
 		Tiles[NextX][NextY].SetImgPath(CurrentPath);

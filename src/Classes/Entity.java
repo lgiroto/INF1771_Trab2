@@ -2,6 +2,7 @@ package Classes;
 public class Entity {
 
 	private String ImagePath;
+	private boolean Visited;
 	
 	public Entity(String imgPath){
 		ImagePath = imgPath;
@@ -13,6 +14,14 @@ public class Entity {
 	
 	public String getImgPath(){
 		return ImagePath;
+	}
+	
+	public void SetVisited(){
+		Visited = true;
+	}
+	
+	public boolean GetVisited(){
+		return Visited;
 	}
 	
 }
