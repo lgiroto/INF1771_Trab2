@@ -30,7 +30,6 @@ public class Game
 	private Interface t;
 	private GameWindow j;
 	private static Entity[][] Tiles = new Entity[12][12];
-	private static Entity[][] Knowledge = new Entity[12][12];
 	private boolean GameOver = false;
 	private int FriendsSaved = 0;
 	private int DonkeyEnergy = 100;
@@ -65,6 +64,12 @@ public class Game
 				t.repaint();
 				break;
 			}
+			
+			// Pegar Munição
+			Query PegarMunicao = new Query("municao(M)");
+			solution = (HashMap) PegarMunicao.oneSolution();
+			int QtdMunicao = Integer.parseInt(solution.get("M").toString());
+			t.Municao = QtdMunicao;
 				
 			// Pegar Posição
 			Query FindCurrentPos = new Query("posicao(X,Y,P)");
@@ -118,6 +123,14 @@ public class Game
 				}
 			}
 			
+			if(Tiles[CurrentX][CurrentY].getClass().getName().equals("Classes.PowerUp")){
+				Query GetPowerUp = new Query("pegar_powerup");
+				GetPowerUp.oneSolution();
+				t.DonkeyEnergy += 50;
+				Tiles[CurrentX][CurrentY] = new Grass("Images/Grass.png");
+				System.out.println("pegar_powerup");
+			}
+			
 			AtualizaAdjacentes();
 			
 			Query q5 = new Query("acao(X)");
@@ -161,6 +174,7 @@ public class Game
 						
 						((Foe) AttackedTile).SetLife(Damage);
 						Life = ((Foe) AttackedTile).GetLife();
+						int FoeDamage = ((Foe) AttackedTile).GetDamage();
 						
 						if(Life == 0){
 							Query MatarMonstro = new Query("matar_monstro(" + AdjX + "," + AdjY + ")");
@@ -168,20 +182,28 @@ public class Game
 							AttackedTile = new Grass("Images/Grass.png");
 						} else{
 							if(!((Foe) AttackedTile).GetEngaged()){
-								DonkeyEnergy = DonkeyEnergy - ((Foe) AttackedTile).GetDamage();
+								DonkeyEnergy = DonkeyEnergy - FoeDamage;
 								t.DonkeyEnergy = DonkeyEnergy;
-								t.CustoTotal += ((Foe) AttackedTile).GetDamage();
+								t.CustoTotal += FoeDamage;
 								if(DonkeyEnergy <= 0){
 									GameOver = true;
 									t.GameOver = true;
 									t.CustoTotal += 1000;
 								}
 								((Foe) AttackedTile).SetEngaged();
+								
+								Query Attack = new Query("atacar(" + FoeDamage + ")");
+								Attack.oneSolution();
 							}
+							Query Attack = new Query("atacar(0)");
+							Attack.oneSolution();
 						}
 					} else{
 						Query AtualizarConhecimento = new Query("atualizar_conhecimento(" + AdjX + "," + AdjY + ",nada)");
-						solution = (HashMap) AtualizarConhecimento.oneSolution();	
+						solution = (HashMap) AtualizarConhecimento.oneSolution();
+						
+						Query Attack = new Query("atacar(0)");
+						Attack.oneSolution();
 					}
 					
 					t.repaint();
@@ -238,6 +260,38 @@ public class Game
 					// Pega caminho até o monstro selecionado
 					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);					
 					RealizaBusca(Positions, CurrentX, CurrentY, Position);					
+					continue;
+				}
+				
+				if(Action.equals("buscar_powerup")){
+					List<Position> Positions = new ArrayList<Position>();
+					String SelectedX = "", SelectedY = "";
+					int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
+					
+					// Pega monstro mais próximo
+					Query BuscarPU = new Query("conhecimento(X,Y,powerup,_)");
+					solutions = (HashMap[]) BuscarPU.allSolutions();
+					if(solutions != null){
+						for(int i = 0; i< solutions.length; i++){
+							String CurrX = solutions[i].get("X").toString();
+							String CurrY = solutions[i].get("Y").toString();
+							XDistance = Math.abs(Integer.parseInt(CurrX) - CurrentX);
+							YDistance = Math.abs(Integer.parseInt(CurrY) - CurrentY);
+							int CurrTotalDistance = XDistance + YDistance;
+							if((SelectedX == "" && SelectedY == "") || TotalDistance > CurrTotalDistance){
+								SelectedX = CurrX;
+								SelectedY = CurrY;
+								TotalDistance = CurrTotalDistance;
+							}
+						}
+					}
+					
+					// Pega caminho até o powerup
+					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);					
+					RealizaBusca(Positions, CurrentX, CurrentY, Position);
+					Query Andar = new Query("andar");
+					Andar.oneSolution();
+					System.out.println("andar");
 					continue;
 				}
 				
@@ -299,7 +353,7 @@ public class Game
 					
 					// Pega caminho até o teletransporte selecionado
 					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);
-					RealizaBusca(Positions, CurrentX, CurrentY, Position);					
+					RealizaBusca(Positions, CurrentX, CurrentY, Position);
 					continue;
 				}
 				
@@ -552,24 +606,24 @@ public class Game
 				String ClassName = AdjTile.getClass().getName();
 				
 				switch(ClassName){
+				case("Classes.Friend"):
+					if(prioridade < 2)
+						Sentido = "amigo";
+					prioridade = 1;
+					break;
 					case("Classes.Foe"):
-						if(prioridade < 3){
+						if(prioridade < 4){
 							if(((Foe) AdjTile).GetIsTp()){
 								Sentido = "teletransportador";
-								prioridade = 2;
-							} else if(prioridade < 2){
+								prioridade = 3;
+							} else if(prioridade < 3){
 								Sentido = "monstro";
-								prioridade = 1;
+								prioridade = 2;
 							}
 						}
 						break;
 					case("Classes.Hole"):
-						if(prioridade < 4)
-							Sentido = "brisa";
-						prioridade = 3;
-						break;
-					case("Classes.Friend"):
-						Sentido = "amigo";
+						Sentido = "brisa";
 						prioridade = 4;
 						break;
 				}
@@ -589,7 +643,6 @@ public class Game
 			}
 		}
 	}
-	
 	
 	public static void main(String[] args) 
 	{
@@ -624,7 +677,7 @@ public class Game
 			        		newEntity = new Grass("Images/Grass.png");
 			        		break;
 			        	case('U'):
-			        		newEntity = new Grass("Images/Grass.png");
+			        		newEntity = new PowerUp("Images/Banana.png");
 			        		break;
 			        	case('O'):
 			        		if(friendsNumber == 0){
@@ -665,13 +718,6 @@ public class Game
 			System.out.println(e.getMessage());
 			System.exit(1);
 		}
-		
-		for(int j=0; j<12;j++){
-			for(int i = 0; i<12; i++){
-				Knowledge[j][i] = null;
-			}
-		}
-		Knowledge[0][11] = Tiles[0][11];
 		
 		new Game();
 	}

@@ -2,11 +2,14 @@
 :-dynamic conhecimento/4.
 :-dynamic tile/3.
 :-dynamic municao/1.
+:-dynamic vida/1.
 
 % Posição do Personagem
-posicao(0, 11, leste).
+posicao(0,11,leste).
+conhecimento(0,11,nada,1).
 
-% Munição
+% Munição e Vida
+vida(100).
 municao(10).
 
 % Células Adjacentes da Atual
@@ -25,8 +28,14 @@ adjacente_q(X, Y, X, AY) :- Y > 0, AY is Y - 1.
 adicionar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, _)), assert(conhecimento(X, Y, S, 0)).
 
 % Atualizar Conhecimento se era Obstáculo
-atualizar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, 1)), conhecimento(X, Y, T, 0), (T = amigo; T = brisa; T = monstro; T = teletransportador),
-								   retract(conhecimento(X, Y, T, 0)), assert(conhecimento(X, Y, S, 0)).
+atualizar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, 1)), conhecimento(X, Y, brisa, 0), (S=amigo;S=nada;S=monstro;S=teletransportador),
+								   retract(conhecimento(X, Y, brisa, 0)), assert(conhecimento(X, Y, S, 0)).
+atualizar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, 1)), conhecimento(X, Y, teletransportador, 0), (S=amigo;S=nada;S=monstro),
+								   retract(conhecimento(X, Y, teletransportador, 0)), assert(conhecimento(X, Y, S, 0)).
+atualizar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, 1)), conhecimento(X, Y, monstro, 0), (S=amigo;S=nada),
+								   retract(conhecimento(X, Y, monstro, 0)), assert(conhecimento(X, Y, S, 0)).
+atualizar_conhecimento(X, Y, S) :- not(conhecimento(X, Y, _, 1)), conhecimento(X, Y, nada, 0), (S=amigo),
+								   retract(conhecimento(X, Y, nada, 0)), assert(conhecimento(X, Y, S, 0)).
 
 % Mudar a Direção - Rotação de 90º
 virar_direita :- posicao(X,Y, norte), retract(posicao(_,_,_)), assert(posicao(X, Y, leste)),!.
@@ -53,8 +62,9 @@ andar :- posicao(X,Y,P), P = oeste, X > 0, XX is X - 1,
 		 retract(conhecimento(XX, Y, S, _)), assert(conhecimento(XX, Y, S, 1)),!.
 
 % Atacar Monstro
-atacar :-   municao(M), MM is M - 1,
-	   		retract(municao(_)), assert(municao(MM)),!.
+atacar(D) :-   	municao(M), MM is M - 1, vida(V), VV is V - D,
+	   			retract(municao(_)), assert(municao(MM)),
+	   			retract(vida(_)), assert(vida(VV)),!.
 
 % Matar Monstro
 matar_monstro(MX,MY) :- retract(conhecimento(MX, MY, monstro, _)), assert(conhecimento(MX, MY, nada, _)),
@@ -70,6 +80,15 @@ teletransportar(TX,TY) :- retract(posicao(_,_,P)), assert(posicao(TX,TY,P)).
 salvar_amigo :- posicao(X, Y, _), tile(X, Y, amigo),
 		 		retract(conhecimento(X, Y, amigo, _)), assert(conhecimento(X, Y, nada, _)),
 				retract(tile(X,Y,amigo)), assert(tile(X,Y,nada)).
+
+% Pegar Power-Up
+pegar_powerup :- posicao(X,Y,_), tile(X,Y,powerup),
+				 municao(M), MM is M + 5,
+				 vida(V), VV is V + 50,
+				 retract(municao(M)), assert(municao(MM)),
+				 retract(vida(V)), assert(vida(VV)),
+				 retract(tile(X,Y,powerup)), assert(tile(X,Y,nada)).
+				 
 
 % Ações, em ordem de preferência
 
@@ -88,16 +107,16 @@ acao(A) :- posicao(X,_,P), P = oeste, X = 0,
 
 	% Andar para não visitado sem Obstáculo (Buraco, Monstro ou Teletransportador); Grama ou Amigo
 acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
-		   conhecimento(X, YY, T, 0), (T = nada; T = amigo),
+		   conhecimento(X, YY, T, 0), (T = amigo; T = nada),
 		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = sul, Y < 11,  YY is Y + 1,
-		   conhecimento(X, YY, T, 0), (T = nada; T = amigo),
+		   conhecimento(X, YY, T, 0), (T = amigo; T = nada),
     	   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1,
-		   conhecimento(XX, Y, T, 0), (T = nada; T = amigo),
+		   conhecimento(XX, Y, T, 0), (T = amigo; T = nada),
   		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
-		   conhecimento(XX, Y, T, 0), (T = nada; T = amigo),
+		   conhecimento(XX, Y, T, 0), (T = amigo; T = nada),
 		   A = andar,!.
 
 	% Virar-se caso tenha algum adjacente não visitado que tenha amigo
@@ -109,19 +128,19 @@ acao(A) :- adjacente(X, Y), conhecimento(X, Y, nada, 0), A = virar_direita,!.
 	% Andar para Adjacente visitado que tem Adjacente livre não visitado
 acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
 		   conhecimento(X, YY, _, 1),
-		   adjacente_q(X, YY, AX, AY), conhecimento(AX, AY, T, 0), (T = nada; T = amigo),
+		   adjacente_q(X, YY, AX, AY), conhecimento(AX, AY, T, 0), (T = amigo; T = nada),
 		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = sul, Y < 11,  YY is Y + 1,
 		   conhecimento(X, YY, _, 1),
-		   adjacente_q(X, YY, AX, AY), conhecimento(AX, AY, T, 0), (T = nada; T = amigo),
+		   adjacente_q(X, YY, AX, AY), conhecimento(AX, AY, T, 0), (T = amigo; T = nada),
     	   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1,
 		   conhecimento(XX, Y, _, 1),
-		   adjacente_q(XX, Y, AX, AY), conhecimento(AX, AY, T, 0), (T = nada; T = amigo),
+		   adjacente_q(XX, Y, AX, AY), conhecimento(AX, AY, T, 0), (T = amigo; T = nada),
   		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
 		   conhecimento(XX, Y, _, 1),
-		   adjacente_q(XX, Y, AX, AY), conhecimento(AX, AY, T, 0), (T = nada; T = amigo),
+		   adjacente_q(XX, Y, AX, AY), conhecimento(AX, AY, T, 0), (T = amigo; T = nada),
 		   A = andar,!.
 
 	% Virar para fugir de obstáculo se há caminho livre não explorado
@@ -142,30 +161,8 @@ acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
 		   conhecimento(XX, Y, T, 0), (T = monstro; T = brisa; T = teletransportador),
 		   A = virar_direita,!.
 
-	% Caso ainda haja não visitado sem nada ou amigo, virar-se buscando-o
-acao(A) :- conhecimento(_, CY, T, 0), (T = nada; T = amigo),
-		   posicao(X, Y, P), P = norte, Y > 0, YY is Y - 1,
-		   adjacente(AX, AY), AX\=X, AY\=YY, conhecimento(AX, AY, T, 1),
-		   abs(CY - YY) > abs(CY - AY),
-		   A = virar_direita,!.
-acao(A) :- conhecimento(_, CY, T, 0), (T = nada; T = amigo),
-		   posicao(X, Y, P), P = sul, Y < 11, YY is Y + 1,
-		   adjacente(AX, AY), AX\=X, AY\=YY, conhecimento(AX, AY, T, 1),
-		   abs(CY - YY) > abs(CY - AY),
-		   A = virar_direita,!.
-acao(A) :- conhecimento(CX, _, T, 0), (T = nada; T = amigo),
-		   posicao(X, Y, P), P = leste, X < 11, XX is X + 1,
-		   adjacente(AX, AY), AX\=XX, AY\=Y, conhecimento(AX, AY, T, 1),
-		   abs(CX - XX) > abs(CX - AX),
-		   A = virar_direita,!.
-acao(A) :- conhecimento(CX, _, T, 0), (T = nada; T = amigo),
-		   posicao(X, Y, P), P = oeste, X > 0, XX is X - 1,
-		   adjacente(AX, AY), AX\=XX, AY\=Y, conhecimento(AX, AY, T, 1),
-		   abs(CX - XX) > abs(CX - AX),
-		   A = virar_direita,!.
-
     % Buscar caminho livre se ainda existir
-acao(A) :- conhecimento(_,_,T,0), (T=nada;T=amigo),
+acao(A) :- conhecimento(_,_,T,0), (T=amigo;T=nada),
            A = buscar_livre.
 
 	% Virar-se para monstro na adjacência
@@ -187,39 +184,44 @@ acao(A) :- posicao(X,Y,P), P = oeste, X > 0, XX is X - 1, municao(M), M > 0,
 		   A = virar_direita,!.
 
 	% Atacar Monstro caso não tenha mais não visitado que não tenha nada
-acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1, municao(M), M > 0,
+acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1, municao(M), M > 0, vida(V), V > 20,
+ 		   not(conhecimento(_,_,amigo,0)), not(conhecimento(_,_,nada,0)),
 		   conhecimento(X, YY, monstro, 0),
 		   A = atacar,!.
-acao(A) :- posicao(X,Y,P), P = sul, Y < 11, YY is Y + 1, municao(M), M > 0,
+acao(A) :- posicao(X,Y,P), P = sul, Y < 11, YY is Y + 1, municao(M), M > 0, vida(V), V > 20,
+		   not(conhecimento(_,_,amigo,0)), not(conhecimento(_,_,nada,0)),
 		   conhecimento(X, YY, monstro, 0),
 		   A = atacar,!.
-acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1, municao(M), M > 0,
+acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1, municao(M), M > 0, vida(V), V > 20,
+		   not(conhecimento(_,_,amigo,0)), not(conhecimento(_,_,nada,0)),
 		   conhecimento(XX, Y, monstro, 0),
 		   A = atacar,!.
-acao(A) :- posicao(X,Y,P), P = oeste, X > 0, XX is X - 1, municao(M), M > 0,
+acao(A) :- posicao(X,Y,P), P = oeste, X > 0, XX is X - 1, municao(M), M > 0, vida(V), V > 20,
+		   not(conhecimento(_,_,amigo,0)), not(conhecimento(_,_,nada,0)),
 		   conhecimento(XX, Y, monstro, 0),
 		   A = atacar,!.
 
 	% Arriscar andar aonde tenha buraco caso não tenha opção
 acao(A) :- posicao(X,Y,P), P = norte, Y > 0, YY is Y - 1,
-		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)),
+		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)), not(conhecimento(_,_,teletransportador,0)),
 		   conhecimento(X, YY, brisa, 0),
 		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = sul, Y < 11,  YY is Y + 1,
-		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)),
+		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)), not(conhecimento(_,_,teletransportador,0)),
 		   conhecimento(X, YY, brisa, 0),
     	   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = leste, X < 11, XX is X + 1,
-		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)),
+		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)), not(conhecimento(_,_,teletransportador,0)),
 		   conhecimento(XX, Y, brisa, 0),
   		   A = andar,!.
 acao(A) :- posicao(X,Y,P), P = oeste, X > 0,  XX is X - 1,
-		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)),
+		   not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,monstro,0)), not(conhecimento(_,_,teletransportador,0)),
 		   conhecimento(XX, Y, brisa, 0),
 		   A = andar,!.
 
     % Buscar por monstro se não há mais o que explorar
-acao(A) :- conhecimento(_,_,monstro,0), not(conhecimento(_,_,nada,0)),
+acao(A) :- conhecimento(X,Y,monstro,0), not(conhecimento(_,_,nada,0)), not(conhecimento(_,_,amigo,0)),
+		   adjacente_q(X,Y, AX, AY), not(conhecimento(AX,AY,_,_)),
            A = buscar_monstro.
 
     % Virar-se para fugir de obstáculo de buraco e teletransportador

@@ -2,12 +2,9 @@ package Classes;
 
 public class PowerUp extends Entity {
 
-	private int Value;
-	
-	public PowerUp(String imgPath, int setValue)
+	public PowerUp(String imgPath)
 	{
 		super(imgPath);
-		Value = setValue;
 	}
 	
 }
