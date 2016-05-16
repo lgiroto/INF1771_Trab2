@@ -14,6 +14,8 @@ public class Interface extends JPanel
 	private Entity[][] Tiles;
 	public int CustoTotal = 0;
 	public int DonkeyEnergy = 100;
+	public boolean GameOver = false;
+	public boolean GameWon = false;
 	private int tabWidth = 650;
 	private int tabHeight = 650;
 	private int x = 0;
@@ -56,5 +58,14 @@ public class Interface extends JPanel
 	    g2d.drawString("Vida:", 650, 120);
 	    g2d.setFont(new Font("Serif", Font.BOLD, 25));
 	    g2d.drawString(Integer.toString(DonkeyEnergy), 650, 160);
+	    
+	    if(GameOver){
+	    	g2d.setFont(new Font("Serif", Font.BOLD, 50));
+		    g2d.drawString("GAME OVER", 650, 220);
+	    }
+	    if(GameWon){
+	    	g2d.setFont(new Font("Serif", Font.BOLD, 50));
+		    g2d.drawString("CONGRATULATIONS!", 650, 220);	    	
+	    }
 	}
 }

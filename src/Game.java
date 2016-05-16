@@ -10,10 +10,16 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
@@ -44,24 +50,73 @@ public class Game
 		while(!GameOver){
 			
 			try {
-				Thread.sleep(400);
+				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 			
 			// Verifica Amigos Salvos
 			int FriendsSoFar = FriendsSaved;
+			if(FriendsSoFar == 3){
+				List<Position> Positions = new ArrayList<Position>();
+				Positions = RecuperaCaminho(Integer.toString(0), Integer.toString(11), CurrentX, CurrentY);					
+				RealizaBusca(Positions, CurrentX, CurrentY, Position);
+				t.GameWon = true;
+				t.repaint();
+				break;
+			}
 				
 			// Pegar Posição
 			Query FindCurrentPos = new Query("posicao(X,Y,P)");
-			
 			solution = (HashMap) FindCurrentPos.oneSolution();
 			if (solution != null){
 				CurrentX = Integer.parseInt(solution.get("X").toString());
 				CurrentY = Integer.parseInt(solution.get("Y").toString());
 				Position = solution.get("P").toString();
 				System.out.println(CurrentX + "," + CurrentY + "," + Position);
-			}			
+			}
+			
+			if(Tiles[CurrentX][CurrentY].getClass().getName().equals("Classes.Foe")){
+				if(((Foe) Tiles[CurrentX][CurrentY]).GetIsTp()){
+					System.out.println("Teletransporta");
+					
+					Random RandomGenerator = new Random();
+					int RandomX = RandomGenerator.nextInt(11);
+					int RandomY = RandomGenerator.nextInt(11);
+					
+					Walk(CurrentX, CurrentY, RandomX, RandomY);
+					Tiles[CurrentX][CurrentY].SetImgPath("Images/Teleporter.png");
+					
+					CurrentX = RandomX;
+					CurrentY = RandomY;
+					
+					Query Teleport = new Query("teletransportar(" + CurrentX + "," + CurrentY + ")");
+					Teleport.oneSolution();
+					
+					switch(Tiles[CurrentX][CurrentY].getClass().getName()){
+						case("Classes.Hole"):
+							t.CustoTotal += 1000;
+							GameOver = true;
+							t.GameOver = true;
+							break;
+						case("Classes.Foe"):
+							DonkeyEnergy = DonkeyEnergy - ((Foe) Tiles[CurrentX][CurrentY]).GetDamage();
+							if(DonkeyEnergy < 0)
+								DonkeyEnergy = 0;
+							t.DonkeyEnergy = DonkeyEnergy;
+							t.CustoTotal += ((Foe) Tiles[CurrentX][CurrentY]).GetDamage();
+							if(DonkeyEnergy <= 0){
+								GameOver = true;
+								t.GameOver = true;
+								t.CustoTotal += 1000;
+							}
+							((Foe) Tiles[CurrentX][CurrentY]).SetEngaged();
+							break;
+					}
+					
+					continue;
+				}
+			}
 			
 			AtualizaAdjacentes();
 			
@@ -102,34 +157,50 @@ public class Game
 						int Life = ((Foe) AttackedTile).GetLife();
 						Random RandomGenerator = new Random();
 						int Damage = RandomGenerator.nextInt(30) + 20;
+						t.CustoTotal += 10;
 						
 						((Foe) AttackedTile).SetLife(Damage);
 						Life = ((Foe) AttackedTile).GetLife();
 						
 						if(Life == 0){
-							Query MatarMonstro = new Query("matar_monstro");
+							Query MatarMonstro = new Query("matar_monstro(" + AdjX + "," + AdjY + ")");
 							MatarMonstro.oneSolution();
 							AttackedTile = new Grass("Images/Grass.png");
+						} else{
+							if(!((Foe) AttackedTile).GetEngaged()){
+								DonkeyEnergy = DonkeyEnergy - ((Foe) AttackedTile).GetDamage();
+								t.DonkeyEnergy = DonkeyEnergy;
+								t.CustoTotal += ((Foe) AttackedTile).GetDamage();
+								if(DonkeyEnergy <= 0){
+									GameOver = true;
+									t.GameOver = true;
+									t.CustoTotal += 1000;
+								}
+								((Foe) AttackedTile).SetEngaged();
+							}
 						}
-						
-						DonkeyEnergy = DonkeyEnergy - ((Foe) AttackedTile).GetDamage();
-						t.DonkeyEnergy = DonkeyEnergy;
-						if(DonkeyEnergy <= 0)
-							GameOver = true;
 					} else{
 						Query AtualizarConhecimento = new Query("atualizar_conhecimento(" + AdjX + "," + AdjY + ",nada)");
 						solution = (HashMap) AtualizarConhecimento.oneSolution();	
-						
-						/*Query VirarParaAtacar = new Query("virar_atacar");
-						Query VirarDireita = new Query("virar_direita");
-						solution = (HashMap) VirarParaAtacar.oneSolution();
-						VirarDireita.oneSolution();
-						while(solution == null){							
-							solution = (HashMap) VirarParaAtacar.oneSolution();
-							VirarDireita.oneSolution();
-						}*/
 					}
+					
+					t.repaint();
 					continue;
+				} else{
+					switch(Position){
+						case("norte"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Back.png");
+							break;
+						case("sul"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Front.png");
+							break;
+						case("leste"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Right.png");
+							break;
+						case("oeste"):
+							Tiles[CurrentX][CurrentY].SetImgPath("Images/DK_Left.png");
+							break;
+					}
 				}
 				
 				if(Action.equals("virar_direita"))
@@ -139,6 +210,97 @@ public class Game
 				if(Action.equals("salvar_amigo")){
 					FriendsSaved++;
 					Tiles[CurrentX][CurrentY] = new Grass("Images/Grass.png");
+				}
+				
+				if(Action.equals("buscar_livre")){
+					List<Position> Positions = new ArrayList<Position>();
+					String SelectedX = "", SelectedY = "";
+					int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
+					
+					// Pega monstro mais próximo
+					Query BuscarLivres = new Query("conhecimento(X,Y,T,0),(T=nada;T=amigo)");
+					solutions = (HashMap[]) BuscarLivres.allSolutions();
+					if(solutions != null){
+						for(int i = 0; i< solutions.length; i++){
+							String CurrX = solutions[i].get("X").toString();
+							String CurrY = solutions[i].get("Y").toString();
+							XDistance = Math.abs(Integer.parseInt(CurrX) - CurrentX);
+							YDistance = Math.abs(Integer.parseInt(CurrY) - CurrentY);
+							int CurrTotalDistance = XDistance + YDistance;
+							if((SelectedX == "" && SelectedY == "") || TotalDistance > CurrTotalDistance){
+								SelectedX = CurrX;
+								SelectedY = CurrY;
+								TotalDistance = CurrTotalDistance;
+							}
+						}
+					}
+					
+					// Pega caminho até o monstro selecionado
+					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);					
+					RealizaBusca(Positions, CurrentX, CurrentY, Position);					
+					continue;
+				}
+				
+				if(Action.equals("buscar_monstro")){
+					List<Position> Positions = new ArrayList<Position>();
+					String SelectedX = "", SelectedY = "";
+					int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
+					
+					// Pega monstro mais próximo
+					Query BuscarMonstros = new Query("conhecimento(X,Y,monstro,0)");
+					solutions = (HashMap[]) BuscarMonstros.allSolutions();
+					if(solutions != null){
+						for(int i = 0; i< solutions.length; i++){
+							String CurrX = solutions[i].get("X").toString();
+							String CurrY = solutions[i].get("Y").toString();
+							XDistance = Math.abs(Integer.parseInt(CurrX) - CurrentX);
+							YDistance = Math.abs(Integer.parseInt(CurrY) - CurrentY);
+							int CurrTotalDistance = XDistance + YDistance;
+							if((SelectedX == "" && SelectedY == "") || TotalDistance > CurrTotalDistance){
+								SelectedX = CurrX;
+								SelectedY = CurrY;
+								TotalDistance = CurrTotalDistance;
+							}
+						}
+					}
+					
+					// Pega caminho até o monstro selecionado
+					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);					
+					RealizaBusca(Positions, CurrentX, CurrentY, Position);					
+					continue;
+				}
+				
+				if(Action.equals("buscar_teletransporte")){
+					List<Position> Positions = new ArrayList<Position>();
+					String SelectedX = "", SelectedY = "";
+					int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
+					
+					// Pega teletransporte mais próximo
+					Query BuscarTeletransportes = new Query("conhecimento(X,Y,teletransportador,0)");
+					solutions = (HashMap[]) BuscarTeletransportes.allSolutions();
+					if(solutions == null){
+						BuscarTeletransportes = new Query("conhecimento(X,Y,teletransportador,_)");
+						solutions = (HashMap[]) BuscarTeletransportes.allSolutions();
+					}
+					if(solutions != null){
+						for(int i = 0; i< solutions.length; i++){
+							String CurrX = solutions[i].get("X").toString();
+							String CurrY = solutions[i].get("Y").toString();
+							XDistance = Math.abs(Integer.parseInt(CurrX) - CurrentX);
+							YDistance = Math.abs(Integer.parseInt(CurrY) - CurrentY);
+							int CurrTotalDistance = XDistance + YDistance;
+							if((SelectedX == "" && SelectedY == "") || TotalDistance > CurrTotalDistance){
+								SelectedX = CurrX;
+								SelectedY = CurrY;
+								TotalDistance = CurrTotalDistance;
+							}
+						}
+					}
+					
+					// Pega caminho até o teletransporte selecionado
+					Positions = RecuperaCaminho(SelectedX, SelectedY, CurrentX, CurrentY);
+					RealizaBusca(Positions, CurrentX, CurrentY, Position);					
+					continue;
 				}
 				
 				Query q6 = new Query(Action);
@@ -153,17 +315,225 @@ public class Game
 					if(Tiles[NewX][NewY].getClass().getName() == "Classes.Hole"){
 						t.CustoTotal += 1000;
 						GameOver = true;
+						t.GameOver = true;
 					}
 				}
 			}
-			
-			Query VerificarConhecimento = new Query("conhecimento(_,_,T,0), (T=nada;T=amigo)");
-			solution = (HashMap) VerificarConhecimento.oneSolution();
-			if(solution != null)
-				System.out.println("Tem não explorado");
-			
+
 			t.repaint();
 		}
+	}
+	
+	private void RealizaBusca(List<Position> Positions, int CurrentX, int CurrentY, String Position){
+		HashMap solution;
+		HashMap[] solutions;
+		int NewX, NewY;
+		for (int i=Positions.size()-1;i>=0;i--)
+		{
+			int DestinyX = Positions.get(i).getX();
+			int DestinyY = Positions.get(i).getY();
+			Query VirarParaAndar;
+			if(DestinyX - CurrentX == 0){
+				if(DestinyY - CurrentY > 0){ // Vai pro Sul
+					switch(Position){
+						case("norte"):
+							VirarParaAndar = new Query("virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "leste");
+							t.repaint();
+							break;
+						case("leste"):
+							VirarParaAndar = new Query("virar_direita");
+							VirarParaAndar.oneSolution();
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							break;
+						case("oeste"):
+							VirarParaAndar = new Query("virar_direita, virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "norte");
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "leste");
+							t.repaint();
+							break;
+					}
+					Position = "sul";
+				}
+				else { // Vai pro Norte
+					switch(Position){
+						case("sul"):
+							VirarParaAndar = new Query("virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "oeste");
+							t.repaint();
+							break;
+						case("oeste"):
+							VirarParaAndar = new Query("virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							break;
+						case("leste"):
+							VirarParaAndar = new Query("virar_direita, virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "sul");
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "oeste");
+							t.repaint();
+							break;
+					}
+					Position = "norte";
+				}
+			}
+			if(DestinyY - CurrentY == 0){
+				if(DestinyX - CurrentX > 0){ // Vai para Leste
+					switch(Position){
+						case("norte"):
+							VirarParaAndar = new Query("virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							break;
+						case("sul"):
+							VirarParaAndar = new Query("virar_direita, virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "oeste");
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "norte");
+							t.repaint();
+							break;
+						case("oeste"):
+							VirarParaAndar = new Query("virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "norte");
+							t.repaint();
+							break;
+					}
+					Position = "leste";
+				}
+				else { // Vai para Oeste
+					switch(Position){
+						case("norte"):
+							VirarParaAndar = new Query("virar_direita, virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "leste");
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "sul");
+							t.repaint();
+							break;
+						case("sul"):
+							VirarParaAndar = new Query("virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							break;
+						case("leste"):
+							VirarParaAndar = new Query("virar_direita, virar_direita");
+							VirarParaAndar.oneSolution();
+							System.out.println("virar_direita");
+							System.out.println("virar_direita");
+							ChangeDirection(CurrentX, CurrentY, Position);
+							t.repaint();
+							ChangeDirection(CurrentX, CurrentY, "sul");
+							t.repaint();
+							break;
+					}
+					Position = "oeste";
+				}
+			}
+			Query Andar = new Query("andar");
+			Andar.oneSolution();
+			System.out.println("andar");
+			
+			Query GetChangedPos = new Query("posicao(X, Y, P)");
+			solution = (HashMap) GetChangedPos.oneSolution();
+			if (solution != null){
+				NewX = Integer.parseInt(solution.get("X").toString());
+				NewY = Integer.parseInt(solution.get("Y").toString());
+				String NewPosition = solution.get("P").toString();
+				Walk(CurrentX, CurrentY, NewX, NewY);
+				CurrentX = NewX;
+				CurrentY = NewY;
+				System.out.println(NewX + "," + NewY + "," + NewPosition);
+			}
+			
+			try {
+				Thread.sleep(600);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private List<Position> RecuperaCaminho(String SelectedX, String SelectedY, int CurrentX, int CurrentY){
+		HashMap solution;
+		HashMap[] solutions;
+		List<Position> Positions = new ArrayList<Position>();
+		
+		Query BuscarAdjVisitado = new Query("adjacente_q(" + SelectedX + "," + SelectedY + ",AX,AY), conhecimento(AX,AY,_,1)");
+		solutions = (HashMap[]) BuscarAdjVisitado.allSolutions();
+		SelectedX = ""; SelectedY = "";
+		int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
+		while(true){
+			String CurrX = "", CurrY = ""; TotalDistance = 99;
+			if(solutions != null){
+				for(int i = 0; i< solutions.length; i++){
+					CurrX = solutions[i].get("AX").toString();
+					CurrY = solutions[i].get("AY").toString();
+					if(Integer.parseInt(CurrX) == CurrentX && Integer.parseInt(CurrY) == CurrentY)
+						break;
+					XDistance = Math.abs(Integer.parseInt(CurrX) - CurrentX);
+					YDistance = Math.abs(Integer.parseInt(CurrY) - CurrentY);
+					int CurrTotalDistance = XDistance + YDistance;
+					if((SelectedX == "" && SelectedY == "") || TotalDistance >= CurrTotalDistance){
+						SelectedX = CurrX;
+						SelectedY = CurrY;
+						TotalDistance = CurrTotalDistance;
+					}
+				}
+			}
+			if(Integer.parseInt(CurrX) == CurrentX && Integer.parseInt(CurrY) == CurrentY)
+				break;
+			Positions.add(new Position(Integer.parseInt(SelectedX), Integer.parseInt(SelectedY)));
+			BuscarAdjVisitado = new Query("adjacente_q(" + SelectedX + "," + SelectedY + ",AX,AY), conhecimento(AX,AY,_,1)");
+			solutions = (HashMap[]) BuscarAdjVisitado.allSolutions();
+		}
+		return Positions;
 	}
 	
 	private void AtualizaAdjacentes(){
@@ -220,11 +590,20 @@ public class Game
 		}
 	}
 	
+	
 	public static void main(String[] args) 
 	{
+		try {
+			ReadPrologTiles();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		
-		Query q1 = new Query("consult", new Term[] {new Atom("Prolog/teste.pl")});
-		System.out.println("consult " + (q1.hasSolution() ? "succeeded" : "failed"));		
+		Query q1 = new Query("consult", new Term[] {new Atom("Prolog/Tiles.pl")});
+		System.out.println("consult " + (q1.hasSolution() ? "succeeded" : "failed"));	
+		Query q2 = new Query("consult", new Term[] {new Atom("Prolog/MainProlog.pl")});
+		System.out.println("consult " + (q2.hasSolution() ? "succeeded" : "failed"));	
 		
 		try {
 			BufferedReader br = new BufferedReader(new FileReader("Map/Map.txt"));
@@ -242,6 +621,9 @@ public class Game
 		    				newEntity = new Grass("Images/DK_Right.png");
 		    				break;
 			        	case('.'):
+			        		newEntity = new Grass("Images/Grass.png");
+			        		break;
+			        	case('U'):
 			        		newEntity = new Grass("Images/Grass.png");
 			        		break;
 			        	case('O'):
@@ -262,11 +644,11 @@ public class Game
 			        	case('T'):
 			        		newEntity = new Foe("Images/Teleporter.png", 0, 100, true);
 			        		break;
-			        	case('U'):
+			        	case('d'):
 			        		newEntity = new Foe("Images/Bee.png", 20, 100, false);
 			        		break;
 			        	case('D'):
-			        		newEntity = new Foe("Images/Troll.png", 30, 100, false);
+			        		newEntity = new Foe("Images/Troll.png", 50, 100, false);
 			        		break;		        
 			        }		    		
 		    		Tiles[columnCounter][lineCounter] = newEntity;
@@ -294,6 +676,55 @@ public class Game
 		new Game();
 	}
 
+	private static void ReadPrologTiles() throws IOException{
+		PrintWriter writer = new PrintWriter("Prolog/Tiles.pl", "UTF-8");
+		BufferedReader br = new BufferedReader(new FileReader("Map/Map.txt"));
+	    String line = br.readLine();
+	    int lineCounter = 0;
+	    int friendsNumber = 0;
+	    writer.println(":-dynamic tile/3.");
+	    
+	    while (line != null) {
+	    	int columnCounter = 0;
+	    	for (char ch: line.toCharArray()) {
+	    		switch(ch)
+		        {
+	    			case('X'):
+	    				writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",nada)." );
+	    				break;
+		        	case('.'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",nada)." );
+		        		break;
+		        	case('O'):
+	        			writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",amigo)." );
+		        		break;
+		        	case('P'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",buraco)." );
+		        		break;
+		        	case('T'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",teletransporte)." );
+		        		break;
+		        	case('U'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",powerup)." );
+		        		break;
+		        	case('D'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",monstro)." );
+		        		break;	
+		        	case('d'):
+		        		writer.println("tile(" + Integer.toString(columnCounter) + "," + Integer.toString(lineCounter) + ",monstro)." );
+		        		break;
+		        }		    		
+	    		
+	    		columnCounter++;
+	    	}
+    		line = br.readLine();
+	    	lineCounter++;
+	    }
+	    		    
+	    br.close();
+		writer.close();
+	}
+	
 	private void ChangeDirection(int X, int Y, String OldDirection){
 		String newPath = "";
 		
