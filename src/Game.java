@@ -169,7 +169,6 @@ public class Game
 				}
 				else if(Action.equals("guardar_powerup")){
 					ActionQuery.oneSolution();
-					t.CustoTotal--;
 					wasPowerUp = true;
 					PUX = CurrentX; PUY = CurrentY;
 				}
@@ -242,7 +241,6 @@ public class Game
 					List<Position> Positions = new ArrayList<Position>(24);
 					String SelectedX = "", SelectedY = "";
 					int XDistance = 99; int YDistance = 99; int TotalDistance = 99;
-					t.CustoTotal--;
 					
 					if(Action.equals("buscar_amigo")){
 						ActionQuery = new Query("buscar_amigo(X,Y)");
@@ -558,7 +556,6 @@ public class Game
 			for(int i = 0; i < solutions.length; i++){
 				int AdjX = Integer.parseInt(solutions[i].get("AX").toString());
 				int AdjY = Integer.parseInt(solutions[i].get("AY").toString());
-				t.CustoTotal--;
 
 				Query ObservaAdj = new Query("observar(" + AdjX + "," + AdjY + ",O)");
 				solution = (HashMap) ObservaAdj.oneSolution();
